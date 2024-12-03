@@ -21,6 +21,7 @@
 
 namespace Chessio\Matomo\Observer;
 
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Event\ObserverInterface;
 
 /**
@@ -67,22 +68,11 @@ class SearchResultObserver implements ObserverInterface
     /**
      * Constructor
      *
-     * @param \Chessio\Matomo\Model\Tracker $matomoTracker
-     * @param \Chessio\Matomo\Helper\Data $dataHelper
-     * @param \Magento\Search\Model\QueryFactory $queryFactory
-     * @param \Magento\Framework\App\ViewInterface $view
+     * @param \Magento\Framework\App\Request\Http $request
      */
     public function __construct(
-        \Chessio\Matomo\Model\Tracker $matomoTracker,
-        \Chessio\Matomo\Helper\Data $dataHelper,
-        \Magento\Search\Model\QueryFactory $queryFactory,
-        \Magento\Framework\App\ViewInterface $view,
         \Magento\Framework\App\Request\Http $request
     ) {
-        $this->_matomoTracker = $matomoTracker;
-        $this->_dataHelper = $dataHelper;
-        $this->_queryFactory = $queryFactory;
-        $this->_view = $view;
         $this->request = $request;
     }
 
@@ -100,12 +90,12 @@ class SearchResultObserver implements ObserverInterface
             return $this;
         }
 
-        if (!$this->_dataHelper->isTrackingEnabled()) {
+        if (!$this->getDataHelper()->isTrackingEnabled()) {
             return $this;
         }
 
-        $query = $this->_queryFactory->get();
-        $matomoBlock = $this->_view->getLayout()->getBlock('matomo.tracker');
+        $query = $this->getQueryFactory()->get();
+        $matomoBlock = $this->getView()->getLayout()->getBlock('matomo.tracker');
         /** @var \Magento\Search\Model\Query $query */
         /** @var \Chessio\Matomo\Block\Matomo $matomoBlock */
 
@@ -115,7 +105,7 @@ class SearchResultObserver implements ObserverInterface
         if ($resultsCount === null) {
             // If this is a new search query the result count hasn't been saved
             // yet so we have to fetch it from the search result block instead.
-            $resultBock = $this->_view->getLayout()->getBlock('search.result');
+            $resultBock = $this->getView()->getLayout()->getBlock('search.result');
             /** @var \Magento\CatalogSearch\Block\Result $resultBock */
             if ($resultBock) {
                 $resultsCount = $resultBock->getResultCount();
@@ -123,9 +113,9 @@ class SearchResultObserver implements ObserverInterface
         }
 
         if ($resultsCount === null) {
-            $this->_matomoTracker->trackSiteSearch($keyword);
+            $this->getMatomoTracker()->trackSiteSearch($keyword);
         } else {
-            $this->_matomoTracker->trackSiteSearch(
+            $this->getMatomoTracker()->trackSiteSearch(
                 $keyword,
                 false,
                 (int) $resultsCount
@@ -138,5 +128,65 @@ class SearchResultObserver implements ObserverInterface
         }
 
         return $this;
+    }
+
+    /**
+     * It's a heavy object, so let's lazy load it
+     *
+     * @return \Chessio\Matomo\Model\Tracker
+     */
+    private function getMatomoTracker()
+    {
+        if (!$this->_matomoTracker) {
+            $this->_matomoTracker = ObjectManager::getInstance()
+                ->get(\Chessio\Matomo\Model\Tracker::class);
+        }
+
+        return $this->_matomoTracker;
+    }
+
+    /**
+     * It's a heavy object, so let's lazy load it
+     *
+     * @return \Chessio\Matomo\Helper\Data
+     */
+    private function getDataHelper()
+    {
+        if (!$this->_dataHelper) {
+            $this->_dataHelper = ObjectManager::getInstance()
+                ->get(\Chessio\Matomo\Helper\Data::class);
+        }
+
+        return $this->_dataHelper;
+    }
+
+    /**
+     *  It's a heavy object, so let's lazy load it
+     *
+     * @return \Magento\Search\Model\QueryFactory
+     */
+    private function getQueryFactory()
+    {
+        if (!$this->_queryFactory) {
+            $this->_queryFactory = ObjectManager::getInstance()
+                ->get(\Magento\Search\Model\QueryFactory::class);
+        }
+
+        return $this->_queryFactory;
+    }
+
+    /**
+     * It's a heavy object, so let's lazy load it
+     *
+     * @return \Magento\Framework\App\ViewInterface
+     */
+    private function getView()
+    {
+        if (!$this->_view) {
+            $this->_view = ObjectManager::getInstance()
+                ->get(\Magento\Framework\App\ViewInterface::class);
+        }
+
+        return $this->_view;
     }
 }
